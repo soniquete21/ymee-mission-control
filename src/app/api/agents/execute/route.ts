@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser, getWorkspaceId, apiError } from "@/lib/api-helpers";
-import { sendTaskToOpenClaw } from "@/lib/openclaw";
+import { executeTask } from "@/lib/openclaw-direct";
+import { notifyTaskCompleted } from "@/lib/openclaw";
 
 /**
  * POST /api/agents/execute
- * Send a task to OpenClaw for agent execution
+ * Execute a task via OpenClaw agent directly (no Telegram transport).
+ * Returns the real agent response.
  */
 export async function POST(req: Request) {
   const user = await getAuthenticatedUser();
@@ -25,7 +27,7 @@ export async function POST(req: Request) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
-      agent: { select: { name: true } },
+      agent: { select: { id: true, name: true, slug: true } },
       workspace: { select: { id: true } },
     },
   });
@@ -34,29 +36,79 @@ export async function POST(req: Request) {
     return apiError("Task not found", 404);
   }
 
-  // Send to OpenClaw
-  const result = await sendTaskToOpenClaw({
+  // Update task status to in_progress
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      status: "in_progress",
+      workflowState: "in_work",
+    },
+  });
+
+  // Execute via OpenClaw directly
+  const result = await executeTask({
     id: task.id,
     title: task.title,
     description: task.description,
     agentName: task.agent?.name,
+    agentSlug: task.agent?.slug,
   });
 
-  if (!result.ok) {
-    return apiError(`Failed to send to OpenClaw: ${result.error}`, 500);
-  }
-
   // Create agent run record
+  const effectiveAgentId = agentId || task.agentId;
   let agentRun = null;
-  if (agentId) {
+
+  if (effectiveAgentId) {
     agentRun = await db.agentRun.create({
       data: {
-        agentId,
+        agentId: effectiveAgentId,
         taskId,
-        status: "running",
+        status: result.ok ? "completed" : "failed",
+        result: result.text || result.error || null,
+        startedAt: new Date(),
+        endedAt: new Date(),
       },
       include: {
         task: { select: { id: true, title: true } },
+      },
+    });
+
+    // Store the response as an AgentOutput
+    if (result.text) {
+      await db.agentOutput.create({
+        data: {
+          runId: agentRun.id,
+          kind: "text",
+          content: result.text,
+          metadata: JSON.stringify({
+            model: result.model,
+            durationMs: result.durationMs,
+            runId: result.runId,
+          }),
+          order: 0,
+        },
+      });
+    }
+  }
+
+  // Update task based on result
+  if (result.ok) {
+    await db.task.update({
+      where: { id: taskId },
+      data: {
+        status: "done",
+        workflowState: "completed",
+        progressNote: result.text?.substring(0, 500) || "Completed by agent",
+      },
+    });
+  } else {
+    await db.task.update({
+      where: { id: taskId },
+      data: {
+        status: "backlog",
+        workflowState: "assigned",
+        blocked: true,
+        progressNote: `Agent execution failed: ${result.error || "Unknown error"}`,
       },
     });
   }
@@ -65,17 +117,35 @@ export async function POST(req: Request) {
   await db.activityEvent.create({
     data: {
       actorId: user.id,
-      action: "sent task to OpenClaw",
+      action: result.ok
+        ? `executed by ${task.agent?.name || "agent"}`
+        : `execution failed — ${task.agent?.name || "agent"}`,
       target: task.title,
       type: "agent",
       taskId,
     },
   });
 
+  // Optional Telegram notification (fire-and-forget)
+  if (result.ok) {
+    notifyTaskCompleted({
+      title: task.title,
+      agentName: task.agent?.name,
+      result: result.text,
+    }).catch(() => {});
+  }
+
   return NextResponse.json({
-    ok: true,
-    message: "Task sent to OpenClaw for execution",
+    ok: result.ok,
+    message: result.ok
+      ? "Task executed successfully"
+      : `Execution failed: ${result.error}`,
     taskId: task.id,
     run: agentRun,
+    response: {
+      text: result.text,
+      durationMs: result.durationMs,
+      model: result.model,
+    },
   });
 }

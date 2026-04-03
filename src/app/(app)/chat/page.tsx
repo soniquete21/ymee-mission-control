@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
-import { Send, Bot, User, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Send, Bot, User, Loader2, AlertCircle, RefreshCw, Zap } from "lucide-react";
 
 interface Message {
   id: string;
@@ -30,19 +30,20 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [lastModel, setLastModel] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Fetch agents
   const { data: agents } = useSWR<Agent[]>("/api/agents", fetcher);
 
-  // Fetch messages — poll every 3s for near-real-time updates
+  // Fetch messages — poll every 5s (less aggressive since responses are synchronous now)
   const chatKey = selectedAgent
     ? `/api/chat?agentId=${selectedAgent}`
     : "/api/chat";
   const { data: messages, mutate: mutateMessages } = useSWR<Message[]>(
     chatKey,
     fetcher,
-    { refreshInterval: 3000 }
+    { refreshInterval: 5000 }
   );
 
   // Auto-select Main Agent
@@ -77,6 +78,12 @@ export default function ChatPage() {
 
       if (!res.ok) {
         setError(data.error || "Failed to send message");
+      } else if (data.agentResponse && !data.agentResponse.ok) {
+        setError(
+          `Agent error: ${data.agentResponse.error || "No response received"}`
+        );
+      } else if (data.agentResponse?.model) {
+        setLastModel(data.agentResponse.model);
       }
 
       setInput("");
@@ -97,8 +104,12 @@ export default function ChatPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Mission Chat</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Communication with OpenClaw agents
+          <p className="text-sm flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
+            <Zap size={12} style={{ color: "var(--success)" }} />
+            Direct connection to OpenClaw
+            {lastModel && (
+              <span className="text-[10px] opacity-60 ml-1">({lastModel})</span>
+            )}
           </p>
         </div>
         <button
@@ -146,7 +157,7 @@ export default function ChatPage() {
               No messages yet with {selectedAgentName}.
             </p>
             <p style={{ color: "var(--muted)" }} className="text-xs mt-1">
-              Send a message to start a conversation.
+              Send a message to get a direct response.
             </p>
           </div>
         ) : (
@@ -204,7 +215,7 @@ export default function ChatPage() {
             >
               <Loader2 size={14} className="animate-spin" />
               <span className="text-xs" style={{ color: "var(--muted)" }}>
-                Sending to {selectedAgentName}...
+                {selectedAgentName} is thinking...
               </span>
             </div>
           </div>

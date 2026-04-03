@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Trash2, Zap } from "lucide-react";
+import { X, Trash2, Zap, CheckCircle, AlertCircle } from "lucide-react";
 
 interface TaskDetailProps {
   task: {
@@ -48,6 +48,13 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
   const [progressNote, setProgressNote] = useState(task.progressNote || "");
   const [saving, setSaving] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [execResult, setExecResult] = useState<{
+    ok: boolean;
+    text?: string;
+    error?: string;
+    durationMs?: number;
+    model?: string;
+  } | null>(null);
 
   async function updateField(data: Record<string, unknown>) {
     setSaving(true);
@@ -67,6 +74,7 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
     }
 
     setExecuting(true);
+    setExecResult(null);
     try {
       const response = await fetch("/api/agents/execute", {
         method: "POST",
@@ -80,14 +88,20 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(`Error: ${data.error}`);
+        setExecResult({ ok: false, error: data.error });
         return;
       }
 
-      alert("Task sent to OpenClaw! Check Telegram for execution.");
+      setExecResult({
+        ok: data.ok,
+        text: data.response?.text,
+        durationMs: data.response?.durationMs,
+        model: data.response?.model,
+        error: data.ok ? undefined : data.message,
+      });
       onUpdated();
     } catch (error) {
-      alert(`Failed to execute: ${error}`);
+      setExecResult({ ok: false, error: String(error) });
     } finally {
       setExecuting(false);
     }
@@ -310,8 +324,37 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
                   }}
                 >
                   <Zap size={14} />
-                  {executing ? "Sending to OpenClaw..." : "Execute with OpenClaw"}
+                  {executing ? "Executing via OpenClaw..." : "Execute with OpenClaw"}
                 </button>
+              )}
+
+              {/* Execution result */}
+              {execResult && (
+                <div
+                  className="mb-2 p-3 rounded-lg text-xs"
+                  style={{
+                    background: execResult.ok
+                      ? "rgba(45, 212, 191, 0.08)"
+                      : "rgba(251, 113, 133, 0.08)",
+                    border: `1px solid ${execResult.ok ? "var(--success)" : "var(--danger)"}`,
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1 font-medium" style={{
+                    color: execResult.ok ? "var(--success)" : "var(--danger)",
+                  }}>
+                    {execResult.ok ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                    {execResult.ok ? "Execution Complete" : "Execution Failed"}
+                    {execResult.durationMs && (
+                      <span className="ml-auto opacity-60">{(execResult.durationMs / 1000).toFixed(1)}s</span>
+                    )}
+                  </div>
+                  {execResult.model && (
+                    <div className="text-[10px] opacity-50 mb-1">Model: {execResult.model}</div>
+                  )}
+                  <div className="whitespace-pre-wrap mt-1" style={{ color: "var(--text)" }}>
+                    {execResult.text?.substring(0, 500) || execResult.error}
+                  </div>
+                </div>
               )}
               <button
                 onClick={deleteTask}
