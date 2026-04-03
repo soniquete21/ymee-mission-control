@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser, getWorkspaceId, isAdmin, apiError } from "@/lib/api-helpers";
+import { sendTaskToOpenClaw } from "@/lib/openclaw";
 
 export async function GET(req: Request) {
   const user = await getAuthenticatedUser();
@@ -93,6 +94,31 @@ export async function POST(req: Request) {
       projectId: task.projectId,
     },
   });
+
+  // Auto-send to OpenClaw when task has an agent assigned
+  if (task.agentId && task.agent) {
+    const openclawResult = await sendTaskToOpenClaw({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      agentName: task.agent.name,
+    });
+
+    if (openclawResult.ok) {
+      await db.agentRun.create({
+        data: { agentId: task.agentId, taskId: task.id, status: "running" },
+      });
+      await db.activityEvent.create({
+        data: {
+          actorId: user.id,
+          action: "auto-sent to OpenClaw",
+          target: task.title,
+          type: "agent",
+          taskId: task.id,
+        },
+      });
+    }
+  }
 
   return NextResponse.json(task, { status: 201 });
 }

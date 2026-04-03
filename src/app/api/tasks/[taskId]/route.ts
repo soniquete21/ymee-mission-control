@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser, getWorkspaceId, isAdmin, apiError } from "@/lib/api-helpers";
+import { sendTaskToOpenClaw } from "@/lib/openclaw";
 
 export async function GET(
   _req: Request,
@@ -101,7 +102,7 @@ export async function PATCH(
     });
   }
 
-  // Log agent assignment
+  // Log agent assignment and auto-send to OpenClaw
   if ("agentId" in body && body.agentId) {
     await db.activityEvent.create({
       data: {
@@ -112,6 +113,29 @@ export async function PATCH(
         taskId: task.id,
       },
     });
+
+    // Auto-send to OpenClaw
+    const openclawResult = await sendTaskToOpenClaw({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      agentName: task.agent?.name,
+    });
+
+    if (openclawResult.ok) {
+      await db.agentRun.create({
+        data: { agentId: body.agentId, taskId: task.id, status: "running" },
+      });
+      await db.activityEvent.create({
+        data: {
+          actorId: user.id,
+          action: "auto-sent to OpenClaw",
+          target: task.title,
+          type: "agent",
+          taskId: task.id,
+        },
+      });
+    }
   }
 
   // Log workflow state changes
