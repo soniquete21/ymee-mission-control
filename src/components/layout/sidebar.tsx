@@ -24,8 +24,9 @@ const nav = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ userName }: { userName: string }) {
+export function Sidebar({ userName, userRole }: { userName: string; userRole: string }) {
   const pathname = usePathname();
+  const isAdmin = userRole === "admin";
 
   return (
     <aside
@@ -71,8 +72,8 @@ export function Sidebar({ userName }: { userName: string }) {
             <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
               {userName}
             </p>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Operator
+            <p className="text-xs" style={{ color: isAdmin ? "var(--accent)" : "var(--muted)" }}>
+              {isAdmin ? "Admin" : "Team Member"}
             </p>
           </div>
           <button

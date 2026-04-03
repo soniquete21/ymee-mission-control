@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthenticatedUser, getWorkspaceId, apiError } from "@/lib/api-helpers";
+import { getAuthenticatedUser, getWorkspaceId, isAdmin, apiError } from "@/lib/api-helpers";
 
 export async function GET(req: Request) {
   const user = await getAuthenticatedUser();
@@ -12,18 +12,26 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const projectId = searchParams.get("projectId");
+  const admin = isAdmin(user);
 
   const tasks = await db.task.findMany({
     where: {
       workspaceId,
       ...(status && { status }),
       ...(projectId && { projectId }),
+      // Non-admin cannot see tasks assigned to admin-only agents
+      ...(!admin && {
+        OR: [
+          { agent: null },
+          { agent: { visibility: "all" } },
+        ],
+      }),
     },
     include: {
       project: { select: { id: true, name: true, slug: true } },
       creator: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
-      agent: { select: { id: true, name: true } },
+      agent: { select: { id: true, name: true, slug: true, type: true, visibility: true } },
     },
     orderBy: [{ order: "asc" }, { createdAt: "desc" }],
   });
@@ -39,9 +47,19 @@ export async function POST(req: Request) {
   if (!workspaceId) return apiError("No workspace", 403);
 
   const body = await req.json();
-  const { title, description, status, priority, projectId, agentId } = body;
+  const { title, description, status, priority, projectId, agentId, needsAudit } = body;
 
   if (!title?.trim()) return apiError("Title required", 400);
+
+  // If assigning to an admin-only agent, user must be admin
+  if (agentId) {
+    const agent = await db.agent.findUnique({ where: { id: agentId }, select: { visibility: true } });
+    if (agent?.visibility === "admin" && !isAdmin(user)) {
+      return apiError("Cannot assign to this agent", 403);
+    }
+  }
+
+  const workflowState = agentId ? "assigned" : "unassigned";
 
   const task = await db.task.create({
     data: {
@@ -53,12 +71,14 @@ export async function POST(req: Request) {
       projectId: projectId || null,
       agentId: agentId || null,
       creatorId: user.id,
+      workflowState,
+      needsAudit: needsAudit || false,
     },
     include: {
       project: { select: { id: true, name: true, slug: true } },
       creator: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
-      agent: { select: { id: true, name: true } },
+      agent: { select: { id: true, name: true, slug: true, type: true, visibility: true } },
     },
   });
 

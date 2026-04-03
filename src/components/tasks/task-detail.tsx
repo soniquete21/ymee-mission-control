@@ -12,14 +12,37 @@ interface TaskDetailProps {
     priority: string;
     blocked: boolean;
     progressNote: string | null;
+    workflowState?: string;
+    routingReason?: string | null;
+    needsAudit?: boolean;
     createdAt: string;
     project: { name: string } | null;
     creator: { name: string };
-    agent: { name: string; id: string } | null;
+    agent: { name: string; id: string; type?: string; slug?: string } | null;
   };
   onClose: () => void;
   onUpdated: () => void;
 }
+
+const workflowStates = [
+  { value: "unassigned", label: "Unassigned" },
+  { value: "assigned", label: "Assigned" },
+  { value: "accepted", label: "Accepted" },
+  { value: "in_work", label: "In Work" },
+  { value: "ready_for_review", label: "Ready for Review" },
+  { value: "approved", label: "Approved" },
+  { value: "completed", label: "Completed" },
+];
+
+const workflowColor: Record<string, string> = {
+  unassigned: "var(--muted)",
+  assigned: "var(--accent)",
+  accepted: "var(--accent-2)",
+  in_work: "var(--accent-2)",
+  ready_for_review: "var(--warning)",
+  approved: "var(--success)",
+  completed: "var(--success)",
+};
 
 export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
   const [progressNote, setProgressNote] = useState(task.progressNote || "");
@@ -61,7 +84,7 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
         return;
       }
 
-      alert("✅ Task sent to OpenClaw! Check Telegram for execution.");
+      alert("Task sent to OpenClaw! Check Telegram for execution.");
       onUpdated();
     } catch (error) {
       alert(`Failed to execute: ${error}`);
@@ -75,6 +98,8 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
     await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
     onUpdated();
   }
+
+  const wfState = task.workflowState || "unassigned";
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
@@ -92,6 +117,27 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
           </div>
 
           <div className="space-y-4">
+            {/* Workflow State */}
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Workflow State
+              </label>
+              <select
+                value={wfState}
+                onChange={(e) => updateField({ workflowState: e.target.value })}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm"
+                style={{
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  color: workflowColor[wfState] || "var(--text)",
+                }}
+              >
+                {workflowStates.map((ws) => (
+                  <option key={ws.value} value={ws.value}>{ws.label}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                 Status
@@ -154,15 +200,53 @@ export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
                 <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                   Agent
                 </label>
-                <p className="text-sm mt-1">{task.agent?.name || "None"}</p>
+                <div className="mt-1">
+                  <p className="text-sm">{task.agent?.name || "None"}</p>
+                  {task.agent?.type && (
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                      {task.agent.type}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
+
+            {task.routingReason && (
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                  Routing Reason
+                </label>
+                <p className="text-xs mt-1" style={{ color: "var(--accent)" }}>
+                  {task.routingReason}
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                 Creator
               </label>
               <p className="text-sm mt-1">{task.creator.name}</p>
+            </div>
+
+            {/* Needs Audit toggle */}
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Audit Review
+              </label>
+              <button
+                onClick={() => updateField({ needsAudit: !task.needsAudit })}
+                className="block mt-1 px-3 py-1.5 rounded-lg text-sm"
+                style={{
+                  background: task.needsAudit
+                    ? "rgba(255, 193, 7, 0.15)"
+                    : "rgba(255,255,255,0.05)",
+                  color: task.needsAudit ? "var(--warning)" : "var(--muted)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {task.needsAudit ? "Audit Required" : "No Audit — Click to flag"}
+              </button>
             </div>
 
             <div>

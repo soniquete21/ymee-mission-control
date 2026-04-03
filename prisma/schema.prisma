@@ -126,6 +126,10 @@ model Task {
   progressNote String?   @db.Text
   order        Int       @default(0)
   dueDate      DateTime?
+  // Agent workflow fields
+  workflowState  String  @default("unassigned") // unassigned, assigned, accepted, in_work, ready_for_review, approved, completed
+  routingReason  String? @db.Text               // Why this agent was assigned
+  needsAudit     Boolean @default(false)        // Whether Audit Agent should review
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -145,14 +149,20 @@ model Task {
 // ─── Agents ───
 
 model Agent {
-  id          String   @id @default(cuid())
-  workspaceId String
-  name        String
-  slug        String
-  role        String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  workspaceId   String
+  name          String
+  slug          String
+  role          String
+  description   String?  @db.Text
+  type          String   @default("specialist") // coordinator, specialist, audit
+  priority      String   @default("normal")     // critical, high, normal
+  skills        String?  @db.Text               // JSON array of skill strings
+  capabilities  String?  @db.Text               // JSON object: { domain, strengths, focus }
+  visibility    String   @default("all")        // "all" or "admin" (finance = admin-only)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks     Task[]
