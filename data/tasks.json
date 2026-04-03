@@ -1,0 +1,18 @@
+[
+  {
+    "id": "d043283e-8ee3-4622-bfd2-9f8c94d20b11",
+    "title": "write me on telegram",
+    "description": "No description yet.",
+    "owner": "Highrez",
+    "project": "Aegis Launch",
+    "priority": "Medium",
+    "status": "Backlog",
+    "lastUpdate": "just now",
+    "progressNote": "Task created from command surface.",
+    "deliveryMode": "notify_telegram",
+    "notifyTelegram": true,
+    "assignToAgent": false,
+    "requiresApproval": false,
+    "deliveryStatus": "draft"
+  }
+]

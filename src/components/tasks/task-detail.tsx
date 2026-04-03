@@ -1,0 +1,246 @@
+"use client";
+
+import { useState } from "react";
+import { X, Trash2, Zap } from "lucide-react";
+
+interface TaskDetailProps {
+  task: {
+    id: string;
+    title: string;
+    description: string | null;
+    status: string;
+    priority: string;
+    blocked: boolean;
+    progressNote: string | null;
+    createdAt: string;
+    project: { name: string } | null;
+    creator: { name: string };
+    agent: { name: string; id: string } | null;
+  };
+  onClose: () => void;
+  onUpdated: () => void;
+}
+
+export function TaskDetail({ task, onClose, onUpdated }: TaskDetailProps) {
+  const [progressNote, setProgressNote] = useState(task.progressNote || "");
+  const [saving, setSaving] = useState(false);
+  const [executing, setExecuting] = useState(false);
+
+  async function updateField(data: Record<string, unknown>) {
+    setSaving(true);
+    await fetch(`/api/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    setSaving(false);
+    onUpdated();
+  }
+
+  async function executeWithOpenClaw() {
+    if (!task.agent?.id) {
+      alert("This task has no assigned agent");
+      return;
+    }
+
+    setExecuting(true);
+    try {
+      const response = await fetch("/api/agents/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: task.id,
+          agentId: task.agent.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(`Error: ${data.error}`);
+        return;
+      }
+
+      alert("✅ Task sent to OpenClaw! Check Telegram for execution.");
+      onUpdated();
+    } catch (error) {
+      alert(`Failed to execute: ${error}`);
+    } finally {
+      setExecuting(false);
+    }
+  }
+
+  async function deleteTask() {
+    if (!confirm("Delete this task?")) return;
+    await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+    onUpdated();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div
+        className="relative w-full max-w-md h-full overflow-y-auto panel-strong"
+        style={{ borderLeft: "1px solid var(--border)" }}
+      >
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold">{task.title}</h2>
+            <button onClick={onClose} className="p-1 hover:bg-white/5 rounded">
+              <X size={18} style={{ color: "var(--muted)" }} />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Status
+              </label>
+              <select
+                value={task.status}
+                onChange={(e) => updateField({ status: e.target.value })}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm"
+                style={{
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                }}
+              >
+                <option value="backlog">Backlog</option>
+                <option value="in_progress">In Progress</option>
+                <option value="review">Review</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Priority
+              </label>
+              <select
+                value={task.priority}
+                onChange={(e) => updateField({ priority: e.target.value })}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm"
+                style={{
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                }}
+              >
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            {task.description && (
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                  Description
+                </label>
+                <p className="text-sm mt-1">{task.description}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                  Project
+                </label>
+                <p className="text-sm mt-1">{task.project?.name || "None"}</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                  Agent
+                </label>
+                <p className="text-sm mt-1">{task.agent?.name || "None"}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Creator
+              </label>
+              <p className="text-sm mt-1">{task.creator.name}</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Blocked
+              </label>
+              <button
+                onClick={() => updateField({ blocked: !task.blocked })}
+                className="block mt-1 px-3 py-1.5 rounded-lg text-sm"
+                style={{
+                  background: task.blocked
+                    ? "rgba(251, 113, 133, 0.15)"
+                    : "rgba(124, 140, 255, 0.1)",
+                  color: task.blocked ? "var(--danger)" : "var(--accent)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {task.blocked ? "Blocked — Click to unblock" : "Not blocked"}
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Progress Note
+              </label>
+              <textarea
+                value={progressNote}
+                onChange={(e) => setProgressNote(e.target.value)}
+                rows={3}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm resize-none"
+                style={{
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                }}
+              />
+              <button
+                onClick={() => updateField({ progressNote })}
+                disabled={saving}
+                className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                  opacity: saving ? 0.6 : 1,
+                }}
+              >
+                Save Note
+              </button>
+            </div>
+
+            <div className="pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+              {task.agent?.id && (
+                <button
+                  onClick={executeWithOpenClaw}
+                  disabled={executing}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2"
+                  style={{
+                    background: "rgba(45, 212, 191, 0.15)",
+                    color: "var(--success)",
+                    opacity: executing ? 0.6 : 1,
+                  }}
+                >
+                  <Zap size={14} />
+                  {executing ? "Sending to OpenClaw..." : "Execute with OpenClaw"}
+                </button>
+              )}
+              <button
+                onClick={deleteTask}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
+                style={{ color: "var(--danger)" }}
+              >
+                <Trash2 size={14} />
+                Delete Task
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

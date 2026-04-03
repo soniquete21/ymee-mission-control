@@ -1,0 +1,6 @@
+node_modules/
+.next/
+.env.local
+/src/generated/prisma
+*.log
+*.pid

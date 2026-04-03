@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg: #060816;
+  --panel: rgba(12, 18, 34, 0.82);
+  --panel-strong: rgba(17, 24, 42, 0.92);
+  --panel-soft: rgba(20, 28, 48, 0.72);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(129, 140, 248, 0.25);
+  --text: #e6ecff;
+  --muted: #97a4c5;
+  --accent: #7c8cff;
+  --accent-2: #37d7ff;
+  --success: #2dd4bf;
+  --warning: #f59e0b;
+  --danger: #fb7185;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, rgba(55, 115, 255, 0.14), transparent 25%), linear-gradient(180deg, #050714 0%, #070a18 60%, #050714 100%); color: var(--text); }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(124, 140, 255, 0.25); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.panel {
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+}
+
+.panel-strong {
+  background: var(--panel-strong);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 24px 90px rgba(3, 8, 20, 0.5);
+}
+
+.metric-glow {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(124,140,255,0.08), 0 16px 40px rgba(43, 57, 122, 0.22);
+}
+
+.grid-surface {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -1px -1px;
+}

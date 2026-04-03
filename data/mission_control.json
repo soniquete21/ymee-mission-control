@@ -1,0 +1,50 @@
+{
+  "tasks": [
+    {
+      "id": "d043283e-8ee3-4622-bfd2-9f8c94d20b11",
+      "title": "write me on telegram",
+      "description": "No description yet.",
+      "owner": "Highrez",
+      "project": "Aegis Launch",
+      "priority": "Medium",
+      "status": "Backlog",
+      "lastUpdate": "just now",
+      "progressNote": "Task created from command surface.",
+      "deliveryMode": "notify_telegram",
+      "notifyTelegram": true,
+      "assignToAgent": false,
+      "requiresApproval": false,
+      "deliveryStatus": "draft"
+    }
+  ],
+  "activity": [
+    {
+      "id": "903ec7bf-ac1e-426a-a8a2-a39ee98298c1",
+      "actor": "Highrez",
+      "action": "sent chat",
+      "target": "Main Agent",
+      "project": "Mission Control",
+      "time": "just now",
+      "type": "summary"
+    },
+    {
+      "id": "d5b957c2-db1a-43b9-8614-d063dbbacc92",
+      "actor": "Highrez",
+      "action": "created task",
+      "target": "write me on telegram",
+      "project": "Aegis Launch",
+      "time": "just now",
+      "type": "task"
+    }
+  ],
+  "approvals": [],
+  "chat": [
+    {
+      "id": "88b0713e-3979-47cd-a354-ea999e0c6e1d",
+      "agent": "Main Agent",
+      "sender": "Highrez",
+      "text": "Hi",
+      "timestamp": "3/31/2026, 8:56:48 AM"
+    }
+  ]
+}
